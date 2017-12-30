@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from time import ctime
+from time import ctime, gmtime
 from binascii import hexlify
 import capstone
 import ctypes
@@ -56,7 +56,6 @@ class FILE_HEADER(ctypes.Structure):
 
     MACHINE_ARCHS = { # Known machine architectures
         0x14c: "Intel 386",
-        0x8664: "x64",
         0x162: "MIPS R3000",
         0x168: "MIPS R10000",
         0x169: "MIPS little endian WCI v2",
@@ -86,42 +85,82 @@ class FILE_HEADER(ctypes.Structure):
     }
 
     CHARACTERISTICS = {             # Decode values of the 'characteristics' field.
-        0x0001 : "Relocation information was stripped from file.\n",
-        0x0002 : "The file is executable.\n",
-        0x0004 : "COFF line numbers were stripped from file.\n",
-        0x0008 : "COFF symbol table entries were stripped from file.\n",
-        0x0010 : "Aggressively trim the working set (Obsolete).\n",
-        0x0020 : "The application can handle addresses greater than 2GB.\n" ,
-        0x0040 : "",
-        0x0080 : "The bytes of the word are reversed (Obsolete).\n",
-        0x0100 : "The computer supports 32-bit words.\n",
-        0x0200 : "Debugging information was removed and stored in another file.\n",
-        0x0400 : "Image on removable media, copy it to and run it from the swap file.\n",
-        0x0800 : "Image is on the network, copy it to and run it from the swap file.\n",
-        0x1000 : "Image is a system file.\n",
-        0x2000 : "Image is a DLL file.\n",
-        0x4000 : "Image should be ran on a single processor computer.\n",
-        0x8000 : "The bytes of the word are reversed (Obsolete).\n"
+        0x0001: "Relocation information was stripped from file.",
+        0x0002: "The file is executable.",
+        0x0004: "COFF line numbers were stripped from file.",
+        0x0008: "COFF symbol table entries were stripped from file.",
+        0x0010: "Aggressively trim the working set (Obsolete).",
+        0x0020: "The application can handle addresses greater than 2GB.",
+        0x0040: "",
+        0x0080: "The bytes of the word are reversed (Obsolete).",
+        0x0100: "The computer supports 32-bit words.",
+        0x0200: "Debugging information was removed and stored in another file.",
+        0x0400: "Image on removable media, copy it to and run it from the swap file.",
+        0x0800: "Image is on the network, copy it to and run it from the swap file.",
+        0x1000: "Image is a system file.",
+        0x2000: "Image is a DLL file.",
+        0x4000: "Image should be ran on a single processor computer.",
+        0x8000: "The bytes of the word are reversed (Obsolete)."
     }
 
+    class UTC:
+        week_day = {
+            0: "Mon",
+            1: "Tue",
+            2: "Wed",
+            3: "Thu",
+            4: "Fri",
+            5: "Sat",
+            6: "Sun"
+        }
 
-    def __new__(self, file_buffer):
-        return self.from_buffer_copy(file_buffer)
+        month_day = {
+            1: "Jan",
+            2: "Feb",
+            3: "Mar",
+            4: "Apr",
+            5: "May",
+            6: "Jun",
+            7: "Jul",
+            8: "Aug",
+            9: "Sep",
+            10: "Oct",
+            11: "Nov",
+            12: "Dec"
+        }
+
+        def __init__(self, time):
+            self.time = time
+
+        def get_utc_time(self):
+            utc_time = gmtime(self.time)
+            month_data = "{0} {1} {2}".format(self.week_day[utc_time.tm_wday],
+                                               self.month_day[utc_time.tm_mon],
+                                               utc_time.tm_mday)
+
+            day_data = "{0}:{1}:{2}".format(utc_time.tm_hour,
+                                            utc_time.tm_min,
+                                            utc_time.tm_sec)
+
+            return "{0} {1} {2}".format(month_data, day_data, utc_time.tm_year)
+
+    def __new__(cls, file_buffer):
+        return cls.from_buffer_copy(file_buffer)
 
     def __init__(self, file_buffer):
         self.arch = self.MACHINE_ARCHS[self.machine]
-        self.time = ctime(self.timedatestamp)
+        self.utc_time = self.UTC(self.timedatestamp).get_utc_time()
 
     def get_characteristics(self):
-        """ Return a readable output of the characteristics of the provided file. """
+        """ Output the characteristics of the provided file. """
         c = list()
 
         # Check each bit position to find a match on the registered 'characteristics' value.
         for bit_position in range(1, 17):
             if (1 & (self.characteristics >> bit_position)) == 1:
-                c.append(self.CHARACTERISTICS[2 ** bit_position])
+                c.append("\t\t[-] {}".format(self.CHARACTERISTICS[2 ** bit_position]))
 
-        return "".join(c)
+        return "\n".join(c)
 
 
 class _Data_Directory(ctypes.Structure):
@@ -168,39 +207,39 @@ class PE_OPT_HEADER_64(ctypes.Structure):
     ]
 
     subsystems_dec = {           # Contains readable information about the provided subsystem field.
-        0 : "Unknown subsystem",
-        1 : "No subsystem required (Device driver or native system process)",
-        2 : "GUI subsystem",
-        3 : "CLI subsystem",
-        5 : "OS/2 CLI subsystem",
-        6 : "",
-        7 : "POSIX CLI subsystem",
-        8 : "",
-        9 : "Windows CE system",
-        10 : "EFI application",
-        11 : "EFI driver with boot services",
-        12 : "EFI driver with run-time services",
-        13 : "EFI ROM image",
-        14 : "Xbox system",
-        15 : "",
-        16 : "Boot application"
+        0: "Unknown subsystem",
+        1: "No subsystem required (Device driver or native system process)",
+        2: "GUI subsystem",
+        3: "CLI subsystem",
+        5: "OS/2 CLI subsystem",
+        6: "",
+        7: "POSIX CLI subsystem",
+        8: "",
+        9: "Windows CE system",
+        10: "EFI application",
+        11: "EFI driver with boot services",
+        12: "EFI driver with run-time services",
+        13: "EFI ROM image",
+        14: "Xbox system",
+        15: "",
+        16: "Boot application"
     }
 
     dll_characteristics_dec = {           # Contains readable information of the DLL characteristics of the image.
-        0x0001 : "",
-        0x0002 : "",
-        0x0004 : "",
-        0x0008 : "",
-        0x0040 : "DLL can be relocated at load time.\n",
-        0x0080 : "Code integrity checks are forced.\n",
-        0x0100 : "Image is compatible with data execution prevention (DEP).\n",
-        0x0200 : "Image is isolation aware, but should not be isolated.\n",
-        0x0400 : "Image does not use structures exception handling (SEH).\n",
-        0x0800 : "Do not bind the image.\n",
-        0x1000 : "",
-        0x2000 : "A WDM driver",
-        0x4000 : "",
-        0x8000 : "Image is terminal server aware.\n"
+        0x0001: "",
+        0x0002: "",
+        0x0004: "",
+        0x0008: "",
+        0x0040: "DLL can be relocated at load time.\n",
+        0x0080: "Code integrity checks are forced.\n",
+        0x0100: "Image is compatible with data execution prevention (DEP).\n",
+        0x0200: "Image is isolation aware, but should not be isolated.\n",
+        0x0400: "Image does not use structures exception handling (SEH).\n",
+        0x0800: "Do not bind the image.\n",
+        0x1000: "",
+        0x2000: "A WDM driver",
+        0x4000: "",
+        0x8000: "Image is terminal server aware.\n"
     }
 
     def __new__(self, file_buffer):
@@ -235,7 +274,7 @@ class PE_OPT_HEADER_32(ctypes.Structure):
         ("minor_linker_version",           ctypes.c_char),
         ("size_of_code",                   ctypes.c_uint),
         ("size_of_init_data",              ctypes.c_uint),
-        ("size_of_uninit_data",             ctypes.c_uint),
+        ("size_of_uninit_data",            ctypes.c_uint),
         ("addr_of_entry_point",            ctypes.c_uint),
         ("base_of_code",                   ctypes.c_uint),
         ("base_of_data",                   ctypes.c_uint),             # A pointer to the beginning of the data section, relative to the image base.
@@ -265,39 +304,39 @@ class PE_OPT_HEADER_32(ctypes.Structure):
     ]
 
     subsystems_dec = {           # Information about the provided subsystem field.
-        0 : "Unknown subsystem",
-        1 : "No subsystem required (Device driver or native system process)",
-        2 : "GUI subsystem",
-        3 : "CLI subsystem",
-        5 : "OS/2 CLI subsystem",
-        6 : "",
-        7 : "POSIX CLI subsystem",
-        8 : "",
-        9 : "Windows CE system",
-        10 : "EFI application",
-        11 : "EFI driver with boot services",
-        12 : "EFI driver with run-time services",
-        13 : "EFI ROM image",
-        14 : "Xbox system",
-        15 : "",
-        16 : "Boot application"
+        0: "Unknown subsystem",
+        1: "No subsystem required (Device driver or native system process)",
+        2: "GUI subsystem",
+        3: "CLI subsystem",
+        5: "OS/2 CLI subsystem",
+        6: "",
+        7: "POSIX CLI subsystem",
+        8: "",
+        9: "Windows CE system",
+        10: "EFI application",
+        11: "EFI driver with boot services",
+        12: "EFI driver with run-time services",
+        13: "EFI ROM image",
+        14: "Xbox system",
+        15: "",
+        16: "Boot application"
     }
 
     dll_characteristics_dec = {           # Information of the DLL characteristics of the image.
-        0x0001 : "",
-        0x0002 : "",
-        0x0004 : "",
-        0x0008 : "",
-        0x0040 : "DLL can be relocated at load time.\n",
-        0x0080 : "Code integrity checks are forced.\n",
-        0x0100 : "Image is compatible with data execution prevention (DEP).\n",
-        0x0200 : "Image is isolation aware, but should not be isolated.\n",
-        0x0400 : "Image does not use structures exception handling (SEH).\n",
-        0x0800 : "Do not bind the image.\n",
-        0x1000 : "",
-        0x2000 : "A WDM driver",
-        0x4000 : "",
-        0x8000 : "Image is terminal server aware.\n"
+        0x0001: "",
+        0x0002: "",
+        0x0004: "",
+        0x0008: "",
+        0x0040: "DLL can be relocated at load time.\n",
+        0x0080: "Code integrity checks are forced.\n",
+        0x0100: "Image is compatible with data execution prevention (DEP).\n",
+        0x0200: "Image is isolation aware, but should not be isolated.\n",
+        0x0400: "Image does not use structures exception handling (SEH).\n",
+        0x0800: "Do not bind the image.\n",
+        0x1000: "",
+        0x2000: "A WDM driver",
+        0x4000: "",
+        0x8000: "Image is terminal server aware.\n"
     }
 
     def __new__(self, file_buffer):
@@ -347,56 +386,56 @@ class IMAGE_SECTION_HEADER(ctypes.Structure):
     ]
 
     characteristics_dec = {                  # Readable state of the 'section characteristics' flags.
-                0x00000000 : "",
-                0x00000001 : "",
-                0x00000002 : "",
-                0x00000004 : "",
-                0x00000008 : "Section should not be padded to the next boundary.\n",
-                0x00000010 : "",
-                0x00000020 : "Section contains executable code.\n",
-                0x00000040 : "Section contains initialized data.\n",
-                0x00000080 : "Section contains uninitialized data.\n",
-                0x00000100 : "",
-                0x00000200 : "Section contains comments or other information.\n",
-                0x00000400 : "",
-                0x00000800 : "Section will not become part of the image.\n",
-                0x00001000 : "Section contains COMDAT data.\n",
-                0x00002000 : "",
-                0x00004000 : "Reset speculative exceptions handling bits in the TLB entries for this section.\n",
-                0x00008000 : "Section contains data referenced through the global pointer.\n",
-                0x00010000 : "",
-                0x00020000 : "",
-                0x00040000 : "",
-                0x00080000 : "",
-                0x00100000 : "Align data on a 1-byte boundary.\n",
-                0x00200000 : "Align data on a 2-byte boundary.\n",
-                0x00300000 : "Align data on a 4-byte boundary.\n",
-                0x00400000 : "Align data on a 8-byte boundary.\n",
-                0x00500000 : "Align data on a 16-byte boundary.\n",
-                0x00600000 : "Align data on a 32-byte boundary.\n",
-                0x00700000 : "Align data on a 64-byte boundary.\n",
-                0x00800000 : "Align data on a 128-byte boundary.\n",
-                0x00900000 : "Align data on a 256-byte boundary.\n",
-                0x00A00000 : "Align data on a 512-byte boundary.\n",
-                0x00B00000 : "Align data on a 1024-byte boundary.\n",
-                0x00C00000 : "Align data on a 2048-byte boundary.\n",
-                0x00D00000 : "Align data on a 4096-byte boundary.\n",
-                0x00E00000 : "Align data on a 8192-byte boundary.\n",
-                0x01000000 : "Section contains extended relocations.\n",
-                0x02000000 : "Section can be discarded as needed.\n",
-                0x04000000 : "Section cannot be cached.\n",
-                0x08000000 : "Section cannot be paged.\n",
-                0x10000000 : "Section can be shared in memory.\n",
-                0x20000000 : "Section can be executed as code.\n",
-                0x40000000 : "Section can be read.\n",
-                0x80000000 : "Section can be written to."
+                0x00000000: "",
+                0x00000001: "",
+                0x00000002: "",
+                0x00000004: "",
+                0x00000008: "Section should not be padded to the next boundary.",
+                0x00000010: "",
+                0x00000020: "Section contains executable code.",
+                0x00000040: "Section contains initialized data.",
+                0x00000080: "Section contains uninitialized data.",
+                0x00000100: "",
+                0x00000200: "Section contains comments or other information.",
+                0x00000400: "",
+                0x00000800: "Section will not become part of the image.",
+                0x00001000: "Section contains COMDAT data.",
+                0x00002000: "",
+                0x00004000: "Reset speculative exceptions handling bits in the TLB entries for this section.",
+                0x00008000: "Section contains data referenced through the global pointer.",
+                0x00010000: "",
+                0x00020000: "",
+                0x00040000: "",
+                0x00080000: "",
+                0x00100000: "Align data on a 1-byte boundary.",
+                0x00200000: "Align data on a 2-byte boundary.",
+                0x00300000: "Align data on a 4-byte boundary.",
+                0x00400000: "Align data on a 8-byte boundary.",
+                0x00500000: "Align data on a 16-byte boundary.",
+                0x00600000: "Align data on a 32-byte boundary.",
+                0x00700000: "Align data on a 64-byte boundary.",
+                0x00800000: "Align data on a 128-byte boundary.",
+                0x00900000: "Align data on a 256-byte boundary.",
+                0x00A00000: "Align data on a 512-byte boundary.",
+                0x00B00000: "Align data on a 1024-byte boundary.",
+                0x00C00000: "Align data on a 2048-byte boundary.",
+                0x00D00000: "Align data on a 4096-byte boundary.",
+                0x00E00000: "Align data on a 8192-byte boundary.",
+                0x01000000: "Section contains extended relocations.",
+                0x02000000: "Section can be discarded as needed.",
+                0x04000000: "Section cannot be cached.",
+                0x08000000: "Section cannot be paged.",
+                0x10000000: "Section can be shared in memory.",
+                0x20000000: "Section can be executed as code.",
+                0x40000000: "Section can be read.",
+                0x80000000: "Section can be written to."
             }
 
     def __new__(self, file_buffer):
         return self.from_buffer_copy(file_buffer)
 
     def __init__(self, file_buffer):
-        self.sectionChars = self.get_characteristics()
+        self.section_chars = self.get_characteristics()
 
     def get_characteristics(self):
         """ Produce a readable output of the characteristics of the provided section. """
@@ -404,9 +443,9 @@ class IMAGE_SECTION_HEADER(ctypes.Structure):
 
         for bit_position in range(1, 33):
             if 1 & (self.characteristics >> bit_position) == 1:
-                c.append(self.characteristics_dec[2 ** bit_position])
+                c.append("\t\t[-] {}".format(self.characteristics_dec[2 ** bit_position]))
 
-        return "".join(c)
+        return "\n".join(c)
 
 
 class UnknownSignature(Exception):
@@ -576,73 +615,83 @@ class DecodeFile:
     def dump_dos(self):
         dos_hdr = self.parse_dos_header()
 
-        print("\n------------------ DOS header ------------------\n")
-        print("Signature: {}".format(dos_hdr.signature))
-        print("Bytes on last page of file: 0x{:04X}".format(dos_hdr.last_size))
-        print("Pages in file: 0x{:04X}".format(dos_hdr.n_blocks))
-        print("Number of relocations: 0x{:04X}".format(dos_hdr.n_reloc))
-        print("Size of header in paragraphs: 0x{:04X}".format(dos_hdr.hdr_size))
-        print("Minimum paragraphs: {0:04X} -> Maximum paragraphs: 0x{1:04X}".format(dos_hdr.min_alloc, dos_hdr.max_alloc))
-        print("Initial SS value: 0x{:04X}".format(dos_hdr.ss))
-        print("Initial SP value: 0x{:04X}".format(dos_hdr.sp))
-        print("Checksum: 0x{:04X}".format(dos_hdr.checksum))
-        print("Initial IP value: 0x{:04X}".format(dos_hdr.ip))
-        print("Initial CS value: 0x{:04X}".format(dos_hdr.cs))
-        print("Relocation table address: 0x{:04X}".format(dos_hdr.relocpos))
-        print("Overlay number: 0x{:04X}".format(dos_hdr.noverlay))
-        print("OEM identifier: 0x{0:04X} -> OEM info: 0x{1:04X}".format(dos_hdr.oem_id, dos_hdr.oem_info))
-        print("Address of exe header: 0x{:08X}".format(dos_hdr.e_lfanew))
+        print("\n[*] DOS header\n")
+        print("\t[+] Signature: {:s}".format(dos_hdr.signature.decode()))
+        print("\t[+] Bytes on last page of file: 0x{:04X}".format(dos_hdr.last_size))
+
+        print("\t[+] Pages in file: 0x{:04X}".format(dos_hdr.n_blocks))
+        print("\t[+] Number of relocations: 0x{:04X}".format(dos_hdr.n_reloc))
+        print("\t[+] Size of header in paragraphs: 0x{:04X}".format(dos_hdr.hdr_size))
+
+        print("\t[+] Minimum paragraphs: {0:04X} -> Maximum paragraphs: 0x{1:04X}".format(dos_hdr.min_alloc,
+                                                                                          dos_hdr.max_alloc))
+
+        print("\t[+] Initial SS value: 0x{:04X}".format(dos_hdr.ss))
+        print("\t[+] Initial SP value: 0x{:04X}".format(dos_hdr.sp))
+        print("\t[+] Checksum: 0x{:04X}".format(dos_hdr.checksum))
+
+        print("\t[+] Initial IP value: 0x{:04X}".format(dos_hdr.ip))
+        print("\t[+] Initial CS value: 0x{:04X}".format(dos_hdr.cs))
+        print("\t[+] Relocation table address: 0x{:04X}".format(dos_hdr.relocpos))
+
+        print("\t[+] Overlay number: 0x{:04X}".format(dos_hdr.noverlay))
+        print("\t[+] OEM identifier: 0x{0:04X} -> OEM info: 0x{1:04X}".format(dos_hdr.oem_id,
+                                                                              dos_hdr.oem_info))
+
+        print("\t[+] Address of exe header: 0x{:08X}".format(dos_hdr.e_lfanew))
 
     def dump_file_hdr(self):
         file_hdr = self.parse_file_header()
 
-        print("\n------------------ File header ------------------\n")
-        print("Signature: {}".format(file_hdr.name))
-        print("Target machine: {}".format(file_hdr.arch))
-        print("Number of sections: 0x{:04X}".format(file_hdr.number_of_sections))
-        print("Date of creation: {}".format(file_hdr.time))
-        print("Size of the optional header: 0x{:04X}".format(file_hdr.size_opt_hdr))
-        print("Characteristics: {}".format(file_hdr.get_characteristics()))
+        print("\n[*] File header.\n")
+        print("\t[+] Signature: {}".format(file_hdr.name.decode()))
+        print("\t[+] Target machine: {}".format(file_hdr.arch))
+
+        print("\t[+] Number of sections: 0x{:04X}".format(file_hdr.number_of_sections))
+        print("\t[+] Date of creation: {0} UTC".format(file_hdr.utc_time))
+        print("\t[+] Size of the optional header: 0x{:04X}".format(file_hdr.size_opt_hdr))
+
+        print("\t[+] Characteristics: ")
+        print(file_hdr.get_characteristics())
 
     def __dump_data_directory(self):
-        print("\n-------------------- Data directories -------------------\n")
+        print("\n[*] Data directories\n")
         for key, value in self.parse_data_directory().items():
             if value.virtual_address != 0x00000000:
-                rva = self.get_pe_entry_point() + value.virtual_address
-                print("{0:12s} -------> Rva: 0x{1:08X} Size: 0x{2:08X}".format(key, rva, value.size))
+                print("\t[{0:^10s}] -> Rva: 0x{1:08X} Size: 0x{2:08X}".format(key, value.virtual_address, value.size))
 
     def __dump32(self, hdr):
         major = hexlify(hdr.major_linker_version).decode()
         minor = hexlify(hdr.minor_linker_version).decode()
 
-        print("\n-------------------------- PE file optional header (32 bits) --------------------------\n")
-        print("Linker version: {0}/{1}".format(major, minor))
-        print("Size of the code section: 0x{:08X}".format(hdr.size_of_code))
-        print("Size of the data section: 0x{:08X}".format(hdr.size_of_init_data))
-        print("Size of the uninitialized data: 0x{:08X}".format(hdr.size_of_uninit_data))
-        print("Address of the entry point: 0x{:08X}".format(hdr.addr_of_entry_point))
-        print("Address of the code section: 0x{:08X}".format(hdr.base_of_code))
-        print("Address of the data section: 0x{:08X}".format(hdr.base_of_data))
+        print("\n[*] PE file optional header (32 bits)\n")
+        print("\t[+] Linker version: {0}/{1}".format(major, minor))
+        print("\t[+] Size of the code section: 0x{:08X}".format(hdr.size_of_code))
+        print("\t[+] Size of the data section: 0x{:08X}".format(hdr.size_of_init_data))
+        print("\t[+] Size of the uninitialized data: 0x{:08X}".format(hdr.size_of_uninit_data))
+        print("\t[+] Address of the entry point: 0x{:08X}".format(hdr.addr_of_entry_point))
+        print("\t[+] Address of the code section: 0x{:08X}".format(hdr.base_of_code))
+        print("\t[+] Address of the data section: 0x{:08X}".format(hdr.base_of_data))
 
-        print("\n-------------------------- Extension of the COFF header --------------------------\n")
-        print("Address of the image (In memory): 0x{:08X}".format(hdr.image_base))
-        print("Alignment of sections loaded: 0x{:08X}".format(hdr.section_alignment))
-        print("Alignment of raw data: 0x{:08X}".format(hdr.file_alignment))
-        print("Required OS version: {0}/{1}".format(hdr.major_os_version, hdr.minor_os_version))
-        print("Version of the image: {0}/{1}".format(hdr.major_img_version, hdr.minor_img_version))
-        print("Subsystem version: {0}/{1}".format(hdr.major_subsys_version, hdr.minor_subsys_version))
-        print("Image size: 0x{:08X}".format(hdr.size_of_image))
-        print("Headers size: 0x{:08X}".format(hdr.size_of_headers))
-        print("Checksum: 0x{:08X}".format(hdr.checksum))
-        print("Subsystem to be invoked by the executable: {}".format(hdr.get_subsystem()))
-        print("DLL characteristics: {}".format(hdr.get_dll_characteristics()))
-        print("Bytes to reserve for the stack: 0x{0:08x} -> ".format(hdr.size_of_stack_reserve), end="")
+        print("\n[*] Extension of the COFF header\n")
+        print("\t[+] Address of the image (In memory): 0x{:08X}".format(hdr.image_base))
+        print("\t[+] Alignment of sections loaded: 0x{:08X}".format(hdr.section_alignment))
+        print("\t[+] Alignment of raw data: 0x{:08X}".format(hdr.file_alignment))
+        print("\t[+] Required OS version: {0}/{1}".format(hdr.major_os_version, hdr.minor_os_version))
+        print("\t[+] Version of the image: {0}/{1}".format(hdr.major_img_version, hdr.minor_img_version))
+        print("\t[+] Subsystem version: {0}/{1}".format(hdr.major_subsys_version, hdr.minor_subsys_version))
+        print("\t[+] Image size: 0x{:08X}".format(hdr.size_of_image))
+        print("\t[+] Headers size: 0x{:08X}".format(hdr.size_of_headers))
+        print("\t[+] Checksum: 0x{:08X}".format(hdr.checksum))
+        print("\t[+] Subsystem to be invoked by the executable: {}".format(hdr.get_subsystem()))
+        print("\t[+] DLL characteristics: {}".format(hdr.get_dll_characteristics()))
+        print("\t[+] Bytes to reserve for the stack: 0x{0:08x} -> ".format(hdr.size_of_stack_reserve), end="")
         print("Bytes to commit: 0x{:08X}".format(hdr.size_of_stack_commit))
 
-        print("Bytes to reserve for the local heap: 0x{0:08X} -> ".format(hdr.size_of_heap_reserve), end="")
+        print("\t[+] Bytes to reserve for the local heap: 0x{0:08X} -> ".format(hdr.size_of_heap_reserve), end="")
         print("Bytes to commit: 0x{:08X}".format(hdr.size_of_heap_commit))
 
-        print("Number of directory entries: 0x{:08X}".format(hdr.number_of_rva_and_sizes))
+        print("\t[+] Number of directory entries: 0x{:08X}".format(hdr.number_of_rva_and_sizes))
 
         self.__dump_data_directory()
 
@@ -650,33 +699,33 @@ class DecodeFile:
         major = hexlify(hdr.major_linker_version).decode()
         minor = hexlify(hdr.minor_linker_version).decode()
 
-        print("\n-------------------------- PE file optional header (64 bits) --------------------------\n")
-        print("Linker version: {0}/{1}".format(major, minor))
-        print("Size of the code section: 0x{:08X}".format(hdr.size_of_code))
-        print("Size of the data section: 0x{:08X}".format(hdr.size_of_init_data))
-        print("Size of the uninitialized data: 0x{:08X}".format(hdr.size_of_uninit_data))
-        print("Address of the entry point: 0x{:08X}".format(hdr.addr_of_entry_point))
-        print("Address of the code section: 0x{:08X}".format(hdr.base_of_code))
+        print("\n[*] PE file optional header (64 bits)\n")
+        print("\t[+] Linker version: {0}/{1}".format(major, minor))
+        print("\t[+] Size of the code section: 0x{:08X}".format(hdr.size_of_code))
+        print("\t[+] Size of the data section: 0x{:08X}".format(hdr.size_of_init_data))
+        print("\t[+] Size of the uninitialized data: 0x{:08X}".format(hdr.size_of_uninit_data))
+        print("\t[+] Address of the entry point: 0x{:08X}".format(hdr.addr_of_entry_point))
+        print("\t[+] Address of the code section: 0x{:08X}".format(hdr.base_of_code))
 
-        print("\n-------------------------- Extension of the COFF header --------------------------\n")
-        print("Address of the image (In memory): 0x{:016X}".format(hdr.image_base))
-        print("Alignment of sections loaded: 0x{:08X}".format(hdr.section_alignment))
-        print("Alignment of raw data: 0x{:08X}".format(hdr.file_alignment))
-        print("Required OS version: {0} -> {1}".format(hdr.major_os_version, hdr.minor_os_version))
-        print("Version of the image: {0} -> {1}".format(hdr.major_img_version, hdr.minor_img_version))
-        print("Subsystem version: {0} -> {1}".format(hdr.major_subsys_version, hdr.minor_subsys_version))
-        print("Image size: 0x{:08X}".format(hdr.size_of_image))
-        print("Headers size: 0x{:08X}".format(hdr.size_of_headers))
-        print("Checksum: 0x{:08X}".format(hdr.checksum))
-        print("Subsystem to be invoked by the executable: {}".format(hdr.get_subsystem()))
-        print("DLL characteristics: {}".format(hdr.get_dll_characteristics()))
-        print("Bytes to reserve for the stack: 0x{0:016x} -> ".format(hdr.size_of_stack_reserve), end="")
+        print("\n[*] Extension of the COFF header\n")
+        print("\t[+] Address of the image (In memory): 0x{:016X}".format(hdr.image_base))
+        print("\t[+] Alignment of sections loaded: 0x{:08X}".format(hdr.section_alignment))
+        print("\t[+] Alignment of raw data: 0x{:08X}".format(hdr.file_alignment))
+        print("\t[+] Required OS version: {0} -> {1}".format(hdr.major_os_version, hdr.minor_os_version))
+        print("\t[+] Version of the image: {0} -> {1}".format(hdr.major_img_version, hdr.minor_img_version))
+        print("\t[+] Subsystem version: {0} -> {1}".format(hdr.major_subsys_version, hdr.minor_subsys_version))
+        print("\t[+] Image size: 0x{:08X}".format(hdr.size_of_image))
+        print("\t[+] Headers size: 0x{:08X}".format(hdr.size_of_headers))
+        print("\t[+] Checksum: 0x{:08X}".format(hdr.checksum))
+        print("\t[+] Subsystem to be invoked by the executable: {}".format(hdr.get_subsystem()))
+        print("\t[+] DLL characteristics: {}".format(hdr.get_dll_characteristics()))
+        print("\t[+] Bytes to reserve for the stack: 0x{0:016x} -> ".format(hdr.size_of_stack_reserve), end="")
         print("Bytes to commit: 0x{:016X}".format(hdr.size_of_stack_commit))
 
-        print("Bytes to reserve for the local heap: 0x{0:016X} -> ".format(hdr.size_of_heap_reserve), end="")
+        print("\t[+] Bytes to reserve for the local heap: 0x{0:016X} -> ".format(hdr.size_of_heap_reserve), end="")
         print("Bytes to commit: 0x{:016X}".format(hdr.size_of_heap_commit))
 
-        print("Number of directory entries: 0x{:08X}".format(hdr.number_of_rva_and_sizes))
+        print("\t[+] Number of directory entries: 0x{:08X}".format(hdr.number_of_rva_and_sizes))
 
         self.__dump_data_directory()
 
@@ -691,14 +740,19 @@ class DecodeFile:
     def dump_sections_header(self):
         section_hdr = self.parse_section_headers()
 
-        print("\n-------------------- Section headers --------------------\n")
+        print("\n[*] Section Headers\n")
 
-        for section in section_hdr.values():
-            print("Section name: {}".format(section.name))
-            print("Virtual address to which load the section: 0x{:08X}".format(section.virtual_address))
-            print("File-segment relative size: 0x{:08X}".format(section.size_of_raw_data))
-            print("Offset to the location of the section body: 0x{:08X}".format(section.ptr_to_raw_data))
-            print("Section characteristics: {}\n".format(section.get_characteristics()))
+        for key, value in section_hdr.items():
+            print("\n[+] Section name: {:s}".format(key))
+            print("\t[-] Virtual address: 0x{0:08X} \t Physical address: 0x{1:08x}".format(value.virtual_address,
+                                                                               value.misc.physical_address))
+
+            print("\t[-] File relative size: 0x{0:08X} \t Virtual size: 0x{1:08X}".format(value.size_of_raw_data,
+                                                                                        value.misc.virtual_size))
+
+            print("\t[-] File offset: 0x{:08X}".format(value.ptr_to_raw_data))
+            print("\t[+] Section characteristics:")
+            print(value.get_characteristics())
 
     def dump_file_info(self):
         """ Dumps information about the four sectors of the provided PE file """
@@ -711,7 +765,7 @@ class DecodeFile:
         cur_offset = self.__save_offset()
         d = self.parse_section_headers()
 
-        if not section_name in d.keys():
+        if section_name not in d.keys():
             raise KeyError("{} is not a key.".format(section_name))
 
         section_hdr = d[section_name]
@@ -720,10 +774,9 @@ class DecodeFile:
         return self.__file.read(section_hdr.size_of_raw_data)
 
     def disassemble_section(self, section_name):
-        cur_offset = self.__save_offset()
         d = self.parse_section_headers()
 
-        if not section_name in d.keys():
+        if section_name not in d.keys():
             raise KeyError("{} is not a key.".format(section_name))
 
         section_hdr = d[section_name]
@@ -734,7 +787,16 @@ class DecodeFile:
         data_size = section_hdr.size_of_raw_data
         ptr_raw_data = section_hdr.ptr_to_raw_data
 
-        print("\n--------------Disassembling {} section--------------".format(section_name))
+        print("\n[*] Disassembling {} section\n".format(section_name))
 
-        for (address, s, mnemonic, opt_str) in md.disasm_lite(self.__file.read(data_size), ptr_raw_data):
-                print("0x{0:08x}\t{1}\t{2}".format(address, mnemonic, opt_str))
+        try:
+
+            for (address, s, mnemonic, opt_str) in md.disasm_lite(self.__file.read(data_size), ptr_raw_data):
+                    print("0x{0:08x}\t{1}\t{2}".format(address, mnemonic.upper(), opt_str))
+
+        except BrokenPipeError:
+            exit(0)
+
+        except Exception as genErr:
+            print("Error: {}".format(genErr.args))
+            exit(0)
