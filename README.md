@@ -1,7 +1,5 @@
-# Pefile parser
-A python based, PE file reader.
+# exec-parser
+Dumps information about executable file.
 
-This script dumps information of a PE file sections and, if indicated, can disassemble the specfied section.
-
-# v1.0
-Shows section information and/or disassembles it.
+# V1.0
+Currently dumps information of PE files and, if requested, disassembles a section.
